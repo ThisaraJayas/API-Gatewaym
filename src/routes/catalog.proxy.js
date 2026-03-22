@@ -1,7 +1,8 @@
 import express from "express";
-import { createProxyMiddleware } from "http-proxy-middleware";
 import dotenv from "dotenv";
 dotenv.config();
+
+import { createProxyMiddleware } from "http-proxy-middleware";
 
 const router = express.Router();
 
