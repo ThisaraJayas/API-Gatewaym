@@ -8,6 +8,7 @@ import authProxy from "./routes/auth.proxy.js";
 import bookingProxy from "./routes/booking.proxy.js";
 import paymentProxy from "./routes/payment.proxy.js";
 import catalogProxy from "./routes/catalog.proxy.js";
+import { createProxyMiddleware } from "http-proxy-middleware";
 
 dotenv.config();
 
@@ -31,6 +32,14 @@ app.get("/", (req, res) => {
     status: "Running",
   });
 });
+
+// app.use(
+//   "/uploads",
+//   createProxyMiddleware({
+//     target: process.env.CATALOG_SERVICE_URL,
+//     changeOrigin: true,
+//   }),
+// );
 
 app.use("/api/auth", authProxy);
 app.use("/api/bookings", bookingProxy);
