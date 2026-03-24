@@ -9,39 +9,28 @@ const router = express.Router();
 router.use(
   "/",
   createProxyMiddleware({
-    target: process.env.PAYMENT_SERVICE_URL, // Ensure this is set in your .env (e.g., http://localhost:8083)
+    target: process.env.PAYMENT_SERVICE_URL,
     changeOrigin: true,
-    secure: false,
-    cookieDomainRewrite: "",
+    // On AWS, ensure your Target Group/Security Groups allow traffic on this port
     
-    // 🔥 PATH REWRITE LOGIC
-    pathRewrite: (path, req) => {
-      // 1. If it's a webhook call, keep the path as is
-      if (path.startsWith("/api/webhook")) {
+    pathRewrite: (path) => {
+      // If the path already has the prefix, don't add it again
+      if (path.startsWith("/api/payments") || path.startsWith("/api/webhook")) {
         return path;
       }
-      // 2. Prevent double prefixing if the gateway already received /api/payments
-      if (path.startsWith("/api/payments")) {
-        return path;
-      }
-      // 3. Default: prepend /api/payments for general payment requests
       return `/api/payments${path}`;
     },
 
-    onProxyReq: (proxyReq, req, res) => {
-      console.log(`[GATEWAY → PAYMENT] ${req.method} ${req.originalUrl}`);
+    onProxyReq: (proxyReq, req) => {
+      // 1. Log outgoing request for debugging in AWS CloudWatch
+      console.log(`[PROXY] ${req.method} ${req.originalUrl} -> ${process.env.PAYMENT_SERVICE_URL}`);
 
-      // Forward Authorization header for protected routes
-      if (req.headers.authorization) {
-        proxyReq.setHeader("Authorization", req.headers.authorization);
-      }
+      // 2. Pass through ALL headers (including Authorization and Content-Type)
+      Object.keys(req.headers).forEach((key) => {
+        proxyReq.setHeader(key, req.headers[key]);
+      });
 
-      /**
-       * ⚠️ CRITICAL FOR WEBHOOKS:
-       * If you are using body-parser or express.json() in your main index.js/server.js, 
-       * the request body is already consumed. We must "re-stream" it so Spring Boot 
-       * can read the raw body for signature verification.
-       */
+      // 3. Fix for Body Parser (If you use express.json() in index.js)
       if (req.body && Object.keys(req.body).length) {
         const bodyData = JSON.stringify(req.body);
         proxyReq.setHeader("Content-Length", Buffer.byteLength(bodyData));
@@ -49,16 +38,9 @@ router.use(
       }
     },
 
-    onProxyRes: (proxyRes) => {
-      console.log(`[PAYMENT RESPONSE] Status: ${proxyRes.statusCode}`);
-    },
-
     onError: (err, req, res) => {
-      console.error("Proxy Error (Payment):", err.message);
-      res.status(500).json({
-        message: "Payment Service is currently unavailable",
-        error: err.message
-      });
+      console.error("Payment Proxy Error:", err.message);
+      res.status(502).json({ message: "Payment Service Gateway Error" });
     },
   })
 );
