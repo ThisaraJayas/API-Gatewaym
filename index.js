@@ -22,7 +22,7 @@ const PORT = process.env.PORT || 4000;
 
 app.use(
   cors({
-    origin: "https://salon-dashboard-frontend.vercel.app",
+    origin: "http://ctse-alb-320060941.eu-north-1.elb.amazonaws.com",
     credentials: true,
   }),
 );
